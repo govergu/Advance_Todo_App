@@ -1,7 +1,11 @@
 const express = require("express");
 const { authMiddleware } = require("../middlewares/authMiddleware");
 const { roleMiddleware } = require("../middlewares/roleMiddleware");
-const { getTodos, createTask } = require("../controllers/taskController");
+const {
+  getTodos,
+  createTask,
+  updateTask,
+} = require("../controllers/taskController");
 
 const AppError = require("../utils/appError");
 const validate = require("../middlewares/validate");
@@ -17,7 +21,12 @@ router.post(
   validate(createTodoSchema),
   createTask
 );
-
+router.patch(
+  "/:id",
+  authMiddleware,
+  roleMiddleware("user", "admin"),
+  updateTask
+);
 // router.get("/test-error", (req, res, next) => {
 //   next(new AppError(404, "Not Found Error", "Just a Test Route you fool"));
 // });
