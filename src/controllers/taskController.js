@@ -1,5 +1,6 @@
 const Task = require("../models/Task");
 const AppError = require("../utils/appError");
+const redis = require("../utils/redis");
 
 exports.createTask = async (req, res, next) => {
   try {
@@ -7,6 +8,8 @@ exports.createTask = async (req, res, next) => {
       ...req.body,
       owner: req.user._id,
     });
+    await redis.delPattern(`todos:*`);
+    console.log("Cache Invalidation done");
     res.status(200).json(newTask);
   } catch (error) {
     // res.status(500).json({ message: error.message });
@@ -36,6 +39,8 @@ exports.updateTask = async (req, res, next) => {
 
     await todo.save();
 
+    await redis.delPattern(`todos:*`);
+
     res.status(200).json({ message: "Task updated successfully", todo });
   } catch (error) {
     next(
@@ -61,6 +66,18 @@ exports.getTodos = async (req, res, next) => {
     if (req.query.sortBy)
       sort[req.query.sortBy] = req.query.sortBy === "desc" ? -1 : 1;
 
+    //Caching Concept
+    const cacheKey = `todos:${req.user.role}:${req.user.id}:${JSON.stringify(
+      req.query
+    )}`;
+
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      console.log("Cached Hit!!");
+      return res.status(200).json(JSON.parse(cached));
+    }
+
+    //Normall handling of data finding in database
     let todos;
 
     if (req.user.role === "admin") {
@@ -75,6 +92,10 @@ exports.getTodos = async (req, res, next) => {
         .limit(limit)
         .sort(sort);
     }
+    //setting the response on cache
+    const responseData = { count: todos.length, todos };
+    await redis.setEx(cacheKey, 120, JSON.stringify(responseData));
+
     res.status(200).json({ count: todos.length, todos });
   } catch (error) {
     // res.status(500).json({ message: "Error caught", error: error.message });

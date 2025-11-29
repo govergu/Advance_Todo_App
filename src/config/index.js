@@ -5,4 +5,5 @@ module.exports = {
   port: process.env.PORT || 8080,
   dbUrl: process.env.MONGO_URL,
   jwt: process.env.JWT_SECRET,
+  redisUrl: process.env.REDIS,
 };
